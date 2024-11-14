@@ -3,8 +3,8 @@
 
 #include<queue>
 
-template<typename T = int>
-class queue_node : public std::queue<T>
+template<typename T>
+class queue_node
 {
 	enum {
 		parent, right, left
@@ -13,43 +13,113 @@ private:
 	std::queue<T>* _Parent;
 	std::queue<T>* _Right;
 	std::queue<T>* _Left;
-	bool(*_forkCondition)(std::queue<T>&);
-	bool(*_stopCondition)(std::queue<T>&);
+	bool(*_forkCondition)(queue_node<T>&);
+	bool(*_stopCondition)(queue_node<T>&);
 	void(*_event)(queue_node<T>&);
 
-	virtual bool defaultForkCondition() const;
-	virtual bool defaultStopCondition() const;
-	virtual void forkEvent();
+	virtual bool defaultForkCondition(queue_node<T>&) const {
+		return !(this->_Right->empty() || this->_Left->empty());
+	};
+	virtual bool defaultStopCondition(queue_node<T>&) const {
+		return this->_Right->size() == this->_Left->size();
+	};
+	virtual void defaultForkEvent(queue_node<T>&) const {
+		static bool isEmpty = false;	// "cash"
+		if (isEmpty) {
+			return;
+		}
+		if (!this->_Parent->empty()) {
+			isEmpty = true;
+			if (this->_Right->size() < this->_Left->size()) {
+				const T trigger = this->_Parent->front(); // trigger-woman
+				this->_Right->push(trigger);
+				this->_Parent->pop();
+			}
+			else if (this->_Right->size > this->_Left->size()) {
+				const T trigger = this->_Parent->front(); // trigger-woman
+				this->_Left->push(trigger);
+				this->_Parent->pop();
+			}
+		}
+		else {
+			isEmpty = true;
+		}
+	};
 public:
-	queue_node();
-	virtual ~queue_node();
+	queue_node() {
+		this->_Parent = new std::queue<T>();
+		this->_Right = new std::queue<T>();
+		this->_Left = new std::queue<T>();
+
+		this->_forkCondition = (bool)this->defaultForkCondition(queue_node<T>&);
+		this->_stopCondition = (bool)this->defaultStopCondition(queue_node<T>&);
+		this->_event = (void)this->defaultForkEvent(queue_node<T>&);
+	};
+	virtual ~queue_node() {
+		delete this->_Parent;
+		delete this->_Right;
+		delete this->_Left;
+	};
 
 	// ACCESSORS
-	const T& getTrigger() const;
-	const T& getFront(int _branch) const;
-	void setForkCondition(bool(*forkCondition)(std::queue<T>&));
-	void setStopCondition(bool(*stopCondition)(std::queue<T>&));
+	const T& getTrigger() const {
+		return this->getTrigger();
+	};
+	const T& getFront(int _branch) const {
+		switch (_branch) {
+		case parent: return this->_Perent->front(); break;
+		case left: return this->_Left->front(); break;
+		case right: return this->_Right->front(); break;
+		default: return this->getTrigger(); break;
+		}
+		return this->getTrigger();
+	};
+	void setForkCondition(bool(*forkCondition)(std::queue<T>&)) {
+		this->_forkCondition = forkCondition;
+	};
+	void setStopCondition(bool(*stopCondition)(std::queue<T>&)) {
+		this->_stopCondition = stopCondition;
+	}
+	void setEvent(void(*event)(queue_node<T>&)) {
+		this->_event = event;
+	}
 
-	void addItem(T& _item, int _branch);
-	void popItem(T& _item, int _branch);
-	virtual bool isEmpty(int _branch) const;
+	void addItem(T& _item, int _branch) {
+		switch (_branch) {
+		case parent: this->_Parent->push(_item); break;
+		case left: this->_Left->push(_item); break;
+		case right: this->_Right->push(_item); break;
+		default: break;
+		}
+	};
+	void popItem(int _branch) {
+		switch (_branch) {
+		case parent: return this->getTrigger(); break;
+		case left: return this->_Left->front(); break;
+		case right: return this->_Right->front(); break;
+		default: return this->getTrigger(); break;
+		}
+	};
+	bool isEmpty(int _branch) const{
+	return this->_Parent->empty();
+};
 };
 
 #endif
 
 /*
-ГЏГ°ГҐГ¤Г»Г±ГІГ®Г°ГЁГї:
-Гџ Г±ГІГ®ГїГ« Г­ГҐГ¤Г ГўГ­Г® Гў Г®Г·ГҐГ°ГҐГ¤ГЁ Г­Г  ГЇГ®Г·ГІГҐ. Г’Г Г¬ ГЎГ»Г«Г® Г¤ГўГ  Г®ГЄГ­Г , Г±Г®Г®ГІГўГҐГІГ±ГІГўГҐГ­Г­Г®, Г¤ГўГҐ ГЋГ—Г…ГђГ…Г„Г€. ГЃГ»Г«Г  Г®Г¤Г­Г  Г¦ГҐГ­Г№ГЁГ­Г ,
-ГЄГ®ГІГ®Г°Г Гї Г­ГҐ Г¬Г®ГЈГ«Г  Г®ГЇГ°ГҐГ¤ГҐГ«ГЁГІГјГ±Гї, Гў ГЄГ ГЄГ®ГҐ Г®ГЄГ­Г® ГҐГ© Г­ГіГ¦Г­Г® ГЁ "Г­Г ГµГ®Г¤ГЁГ«Г Г±Гј Гў Г±ГіГЇГҐГ°ГЇГ®Г§ГЁГ¶ГЁГЁ", Г¦Г¤Г Г«Г  Гў Г®ГЎГҐГЁГµ Г®Г·ГҐГ°ГҐГ¤ГїГµ.
-Г€Г«Г«ГѕГ±ГІГ°Г Г¶ГЁГї:
-													-------------- ГЋГЄГ­Г®1
-ГЊГ®Гї Г®Г·ГҐГ°ГҐГ¤Гј --------------------- Г†ГҐГ­Г№ГЁГ­Г -ГІГ°ГЁГЈГЈГҐГ°	|
-													-------------- ГЋГЄГ­Г®2
+Предыстория:
+Я стоял недавно в очереди на почте. Там было два окна, соответственно, две ОЧЕРЕДИ. Была одна женщина,
+которая не могла определиться, в какое окно ей нужно и "находилась в суперпозиции", ждала в обеих очередях.
+Иллюстрация:
+													-------------- Окно1
+Моя очередь --------------------- Женщина-триггер	|
+													-------------- Окно2
 
-Гџ Г°ГҐГёГЁГ« Г®ГЎГ®ГЎГ№ГЁГІГј ГЅГІГі Г±ГЁГІГіГ Г¶ГЁГѕ Гў ГўГЁГ¤ГҐ Г±ГІГ°ГіГЄГІГіГ°Г» Г¤Г Г­Г­Г»Гµ queue_node. ГЏГ®Г·ГҐГ¬Гі _node? Г‡Г¤ГҐГ±Гј Г±Г Г¬Г®ГҐ ГЁГ­ГІГҐГ°ГҐГ±Г­Г®ГҐ.
-ГЋГЄГ Г§Г Г«Г®Г±Гј, Г·ГІГ® ГЅГІГ  Г±ГІГ°ГіГЄГІГіГ°Г  Г°ГҐГЄГіГ°Г±ГЁГўГ­Г Гї, ГІГ® ГҐГ±ГІГј ГЁГ¬ГҐГҐГІ Г¬ГҐГ±ГІГ® Г¤ГҐГ°ГҐГўГ® ГІГ ГЄГ®ГЈГ® ГўГЁГ¤Г :
+Я решил обобщить эту ситуацию в виде структуры данных queue_node. Почему _node? Здесь самое интересное.
+Оказалось, что эта структура рекурсивная, то есть имеет место дерево такого вида:
 
-														-------------------			ГЁ ГІГ ГЄ Г¤Г Г«ГҐГҐ
+														-------------------			и так далее
 								--------------------- [								//////////////
 							  /							-------------------			
 ------------------------------														//////////////
@@ -57,11 +127,11 @@ public:
 								--------------------- [								//////////////
 														-------------------			
 
-Г‡Г¤ГҐГ±Гј ГЄГ Г¦Г¤Г»Г© ГіГ§ГҐГ« Г¤ГҐГ°ГҐГўГ  - Г®Г·ГҐГ°ГҐГ¤Гј.
-ГЏГ®Г±Г«ГҐ Гї Г°Г Г±Г±ГЄГ Г§Г Г« ГЇГ°Г® ГЅГІГі ГЁГ¤ГҐГѕ Г±ГўГ®ГҐГ¬Гі ГЇГ°ГЁГїГІГҐГ«Гѕ, Г®Г­ Г±ГЄГ Г§Г Г«, Г·ГІГ® ГЅГІГ® Г®Г·ГҐГ­Гј ГЇГ®ГµГ®Г¦ГҐ Г­Г  load balancer 
-(Гї ГЇГ®Г±Г¬Г®ГІГ°ГҐГ« Г®Г¤Г­ГЁГ¬ ГЈГ«Г Г§Г®Г¬ - ГЅГІГ® Г­ГҐГЄГ Гї Г±ГіГ№Г­Г®Г±ГІГј Г°Г Г±ГЇГ°ГҐГ¤ГҐГ«ГїГѕГ№Г Гї Г­Г ГЈГ°ГіГ§ГЄГі Г¬ГҐГ¦Г¤Гі Г±ГҐГ°ГўГҐГ°Г Г¬ГЁ)
-Г„ГҐГ©Г±ГІГўГЁГІГҐГ«ГјГ­Г® ГЇГ®ГµГ®Г¦ГҐ - ГЇГ®Г¤ГіГ¬Г Г« Гї.
-ГЌГ® ГІГ Г¬ Г¤ГҐГІГЁ ГЎГ»Г«ГЁ Г±ГҐГ°ГўГҐГ°Г Г¬ГЁ, Г  Гў Г­Г ГёГҐГ¬ Г±Г«ГіГ·Г ГҐ - Г®Г·ГҐГ°ГҐГ¤Гј.
-Г‚ Г®ГЎГ№ГҐГ¬ ГЅГІГ® ГІГ®Г·Г­Г® ГЁГ­ГІГҐГ°ГҐГ±Г­Г®, Г¬Г®Г¦ГҐГІ ГІГ ГЄ Г¬Г®Г¦Г­Г® Г®ГЇГЁГ±Г»ГўГ ГІГј ГЁГҐГ°Г Г°ГµГЁГѕ ГЇГ®ГІГ®ГЄГ®Гў Г­Г ГЇГ°ГЁГ¬ГҐГ° (Г­ГҐ ГЁГ¬ГҐГѕ Г®ГЇГ»ГІ Гў 
-Г¬Г­Г®ГЈГ®ГЇГ®ГІГ®Г·Г­Г®Г¬ ГЇГ°Г®ГЈГ°Г Г¬Г¬ГЁГ°Г®ГўГ Г­ГЁГЁ)
+Здесь каждый узел дерева - очередь.
+После я рассказал про эту идею своему приятелю, он сказал, что это очень похоже на load balancer 
+(я посмотрел одним глазом - это некая сущность распределяющая нагрузку между серверами)
+Действительно похоже - подумал я.
+Но там дети были серверами, а в нашем случае - очередь.
+В общем это точно интересно, может так можно описывать иерархию потоков например (не имею опыт в 
+многопоточном программировании)
 */
