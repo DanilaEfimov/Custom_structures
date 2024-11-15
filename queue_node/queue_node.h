@@ -2,40 +2,44 @@
 #define QUEUE_NODE_H
 
 #include<queue>
+#include<iostream>
+
+enum {
+	parent, right, left
+};
 
 template<typename T>
-class queue_node
-{
-	enum {
-		parent, right, left
-	};
-private:
+class queue_node {
+protected:
 	std::queue<T>* _Parent;
 	std::queue<T>* _Right;
 	std::queue<T>* _Left;
-	bool(*_forkCondition)(queue_node<T>&);
-	bool(*_stopCondition)(queue_node<T>&);
-	void(*_event)(queue_node<T>&);
 
-	virtual bool defaultForkCondition(queue_node<T>&) const {
-		return !(this->_Right->empty() || this->_Left->empty());
+public:
+	queue_node() {
+		this->_Parent = new std::queue<T>();
+		this->_Right = new std::queue<T>();
+		this->_Left = new std::queue<T>();
 	};
-	virtual bool defaultStopCondition(queue_node<T>&) const {
-		return this->_Right->size() == this->_Left->size();
+	virtual ~queue_node() {
+		delete this->_Parent;
+		delete this->_Right;
+		delete this->_Left;
 	};
-	virtual void defaultForkEvent(queue_node<T>&) const {
+
+	void push() {
 		static bool isEmpty = false;	// "cash"
 		if (isEmpty) {
 			return;
 		}
 		if (!this->_Parent->empty()) {
-			isEmpty = true;
+			isEmpty = false;
 			if (this->_Right->size() < this->_Left->size()) {
 				const T trigger = this->_Parent->front(); // trigger-woman
 				this->_Right->push(trigger);
 				this->_Parent->pop();
 			}
-			else if (this->_Right->size > this->_Left->size()) {
+			else if (this->_Right->size() > this->_Left->size()) {
 				const T trigger = this->_Parent->front(); // trigger-woman
 				this->_Left->push(trigger);
 				this->_Parent->pop();
@@ -44,47 +48,35 @@ private:
 		else {
 			isEmpty = true;
 		}
-	};
-public:
-	queue_node() {
-		this->_Parent = new std::queue<T>();
-		this->_Right = new std::queue<T>();
-		this->_Left = new std::queue<T>();
-
-		this->_forkCondition = (bool)this->defaultForkCondition(queue_node<T>&);
-		this->_stopCondition = (bool)this->defaultStopCondition(queue_node<T>&);
-		this->_event = (void)this->defaultForkEvent(queue_node<T>&);
-	};
-	virtual ~queue_node() {
-		delete this->_Parent;
-		delete this->_Right;
-		delete this->_Left;
-	};
+	}
 
 	// ACCESSORS
 	const T& getTrigger() const {
 		return this->getTrigger();
 	};
+
 	const T& getFront(int _branch) const {
 		switch (_branch) {
-		case parent: return this->_Perent->front(); break;
+		case parent: return this->_Parent->front(); break;
 		case left: return this->_Left->front(); break;
 		case right: return this->_Right->front(); break;
 		default: return this->getTrigger(); break;
 		}
 		return this->getTrigger();
 	};
-	void setForkCondition(bool(*forkCondition)(std::queue<T>&)) {
-		this->_forkCondition = forkCondition;
-	};
-	void setStopCondition(bool(*stopCondition)(std::queue<T>&)) {
-		this->_stopCondition = stopCondition;
-	}
-	void setEvent(void(*event)(queue_node<T>&)) {
-		this->_event = event;
+
+	virtual std::queue<T>* getChild(int _branch = parent) const {	// cringe
+		switch (_branch) {
+		case parent: return this->_Parent;
+		case right: return this->_Right;
+		case left: return this->_Left;
+		default:
+			return this->_Parent;
+			break;
+		}
 	}
 
-	void addItem(T& _item, int _branch) {
+	void add(const T _item, int _branch) {
 		switch (_branch) {
 		case parent: this->_Parent->push(_item); break;
 		case left: this->_Left->push(_item); break;
@@ -92,34 +84,63 @@ public:
 		default: break;
 		}
 	};
-	void popItem(int _branch) {
+
+	void pop(int _branch) {
 		switch (_branch) {
-		case parent: return this->getTrigger(); break;
-		case left: return this->_Left->front(); break;
-		case right: return this->_Right->front(); break;
-		default: return this->getTrigger(); break;
+		case parent: this->_Parent->pop(); break;
+		case left: this->_Left->pop(); break;
+		case right: this->_Right->pop(); break;
+		default: 
+			break;
 		}
 	};
-	bool isEmpty(int _branch) const{
-	return this->_Parent->empty();
-};
+
+	virtual bool isEmpty(int _branch) const {
+		switch (_branch) {
+		case parent: return this->_Parent->empty(); break;
+		case right: return this->_Right->empty(); break;
+		case left: return this->_Left->empty(); break;
+		default:
+			return true;
+			break;
+		}
+	};
+
+	virtual void terminate() {
+		std::cout << "\t";
+		while (!this->isEmpty(left)) {
+			std::cout << this->getFront(left) << ' ';
+			this->pop(left);
+		}
+		std::cout << "\n\t\t\t\t";
+		while (!this->isEmpty(parent)) {
+			std::cout << this->getFront(parent) << ' ';
+			this->pop(parent);
+		}
+		std::cout << "\n\t";
+		while (!this->isEmpty(right)) {
+			std::cout << this->getFront(right) << ' ';
+			this->pop(right);
+		}
+		std::cout << std::endl;
+	}
 };
 
 #endif
 
 /*
-Предыстория:
-Я стоял недавно в очереди на почте. Там было два окна, соответственно, две ОЧЕРЕДИ. Была одна женщина,
-которая не могла определиться, в какое окно ей нужно и "находилась в суперпозиции", ждала в обеих очередях.
-Иллюстрация:
-													-------------- Окно1
-Моя очередь --------------------- Женщина-триггер	|
-													-------------- Окно2
+Background:
+I was standing in line at the post office recently. There were two windows, respectively, two QUEUES. There was one woman
+who could not decide which window she needed and was "in superposition", waiting in both queues.
+Illustration:
+													-------------- 1st window
+My queue --------------------- trigger-woman	|
+													-------------- 2nd window
 
-Я решил обобщить эту ситуацию в виде структуры данных queue_node. Почему _node? Здесь самое интересное.
-Оказалось, что эта структура рекурсивная, то есть имеет место дерево такого вида:
+I decided to summarize this situation in the form of a queue_node data structure. Why _node? This is the most interesting part.
+It turned out that this structure is recursive, that is, there is a tree of this type:
 
-														-------------------			и так далее
+														-------------------			ect.
 								--------------------- [								//////////////
 							  /							-------------------			
 ------------------------------														//////////////
@@ -127,11 +148,11 @@ public:
 								--------------------- [								//////////////
 														-------------------			
 
-Здесь каждый узел дерева - очередь.
-После я рассказал про эту идею своему приятелю, он сказал, что это очень похоже на load balancer 
-(я посмотрел одним глазом - это некая сущность распределяющая нагрузку между серверами)
-Действительно похоже - подумал я.
-Но там дети были серверами, а в нашем случае - очередь.
-В общем это точно интересно, может так можно описывать иерархию потоков например (не имею опыт в 
-многопоточном программировании)
+Here, each node of the tree is a queue.
+After I told my friend about this idea, he said it was very similar to load balancer
+(I looked with one eye - this is some kind of entity distributing the load between the servers)
+It really looks like it, I thought.
+But there the children were servers, and in our case, the queue.
+In general, it's definitely interesting, maybe this is how you can describe the hierarchy of threads, for example 
+(I have no experience in multithreaded programming)
 */
